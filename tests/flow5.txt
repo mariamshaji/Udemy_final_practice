@@ -1,0 +1,297 @@
+Flow 5 — Files + Frames E2E (Lebyy Practice Lab)
+====================================================
+
+Covers Video 6 (Files + Frames)
+
+Practice goal
+-------------
+Automate file upload (single + multi), file download assertions, iframe interactions
+(single, multiple, nested), and multi-tab / popup handling using Playwright.
+
+Try these flows yourself before watching the video. In the video I will show the Cursor prompt,
+walk through the generated script, run it, and attach the final spec file.
+
+Style note
+----------
+- Separate test() block for each scenario
+- Each test starts with page.goto(...)
+- Use page.frameLocator(...) to interact inside iframes
+- Use page.waitForEvent('download') before clicking download links
+- Use context.waitForEvent('page') before clicking multi-tab buttons
+- Same simple style as other course specs
+
+
+URLs
+----
+Files (upload/download) : https://lebyy.com/practice/attachments.html
+Frames & windows        : https://lebyy.com/practice/frames.html
+
+
+Fixture files (create under tests/fixtures/ for local runs)
+-----------------------------------------------------------
+evidence.txt   : any small .txt file (e.g. "Sample evidence for Lebyy lab upload")
+report-a.txt   : second .txt for multi-upload
+report-b.csv   : small .csv for multi-upload
+
+
+================================================================================
+VIDEO 6 — FILES (attachments.html)
+================================================================================
+
+All file upload / download controls
+-------------------------------------
+| Control           | Type            | Locator hint                                      | data-testid         |
+|-------------------|-----------------|---------------------------------------------------|---------------------|
+| Page title        | Heading         | getByRole('heading', { name: 'Upload & download' }) | files-title       |
+| Upload alert      | Alert           | #uploadAlert                                      | upload-alert        |
+| Upload form       | Form            | #uploadForm                                       | upload-form         |
+| Single file input | File input      | #evidence                                         | file-input          |
+| Selected name     | Text            | #selectedName                                     | selected-name       |
+| Attach file       | Button          | getByRole('button', { name: 'Attach file' })      | upload-submit       |
+| Clear file        | Button          | getByRole('button', { name: 'Clear file' })       | file-clear          |
+| Multi file input  | File input      | #multiEvidence                                    | file-input-multi    |
+| Multi selected    | Text            | #selectedMultiNames                               | selected-multi-names|
+| Attach files      | Button          | getByRole('button', { name: 'Attach files' })     | upload-multi-submit |
+| Multi alert       | Alert           | #multiAlert                                       | upload-multi-alert  |
+| Download TXT      | Link            | getByRole('link', { name: 'Download TXT' })       | download-txt        |
+| Download CSV      | Link            | getByRole('link', { name: 'Download CSV' })       | download-csv        |
+
+
+Upload / download messages
+--------------------------
+Single upload success : Attached locally: <filename>
+Single upload error   : Choose a file before attaching.
+Multi upload success  : Attached locally: <file1>, <file2>
+Multi upload error    : Choose one or more files before attaching.
+Clear toast           : File cleared
+Default selected text : No file selected / No files selected
+
+Download filenames
+------------------
+TXT : lebyy-sample-evidence.txt
+CSV : lebyy-courses-export.csv
+
+TXT content snippet : Sample evidence file for Lebyy Practice Lab downloads.
+CSV content snippet : id,course,price
+
+
+Files test data
+---------------
+Single upload file  : tests/fixtures/evidence.txt
+Multi upload files  : tests/fixtures/report-a.txt, tests/fixtures/report-b.csv
+Download to assert  : lebyy-sample-evidence.txt
+
+
+File flows (3 E2E tests)
+------------------------
+
+Test 1 — Single file upload attaches successfully  [UPLOAD]
+------------------------------------------------------------
+test('Single file upload attaches successfully', async ({ page }) => {
+
+1. page.goto('https://lebyy.com/practice/attachments.html')
+
+2. Assert selected name → "No file selected"
+
+3. Set file on single input → tests/fixtures/evidence.txt
+   (page.getByTestId('file-input').setInputFiles('tests/fixtures/evidence.txt'))
+
+4. Assert selected name → contains "evidence.txt"
+
+5. Click Attach file
+
+6. Assert upload alert → contains "Attached locally: evidence.txt"
+
+})
+
+
+Test 2 — Multi-file upload attaches all files  [MULTI UPLOAD]
+---------------------------------------------------------------
+test('Multi-file upload attaches all files', async ({ page }) => {
+
+1. page.goto('https://lebyy.com/practice/attachments.html')
+
+2. Set files on multi input → report-a.txt + report-b.csv
+
+3. Assert selected multi names → contains "report-a.txt" and "report-b.csv"
+
+4. Click Attach files
+
+5. Assert multi upload alert → contains "Attached locally:"
+   - contains "report-a.txt"
+   - contains "report-b.csv"
+
+})
+
+
+Test 3 — Download TXT file with correct name and content  [DOWNLOAD]
+--------------------------------------------------------------------
+test('Download TXT file with correct name and content', async ({ page }) => {
+
+1. page.goto('https://lebyy.com/practice/attachments.html')
+
+2. Start waiting for download BEFORE click:
+   const downloadPromise = page.waitForEvent('download')
+
+3. Click Download TXT
+
+4. Resolve download and assert:
+   - download.suggestedFilename() → "lebyy-sample-evidence.txt"
+   - saved file content → contains "Sample evidence file for Lebyy Practice Lab downloads."
+
+})
+
+
+File locators to practice
+-------------------------
+- page.getByTestId('file-input').setInputFiles('tests/fixtures/evidence.txt')
+- page.getByTestId('file-input-multi').setInputFiles(['tests/fixtures/report-a.txt', 'tests/fixtures/report-b.csv'])
+- page.getByTestId('selected-name')
+- page.getByTestId('upload-submit').click()
+- page.getByTestId('upload-alert')
+- page.getByTestId('file-clear').click()
+- page.getByTestId('download-txt').click()
+- page.getByTestId('download-csv').click()
+- const download = await page.waitForEvent('download')
+- await download.saveAs('path/to/save')
+
+
+================================================================================
+VIDEO 6 — FRAMES & WINDOWS (frames.html)
+================================================================================
+
+All frame / window controls
+---------------------------
+| Control            | Type     | Locator hint                                         | data-testid          |
+|--------------------|----------|------------------------------------------------------|----------------------|
+| Page title         | Heading  | getByRole('heading', { name: 'Frames & windows' })   | frames-title         |
+| Single iframe      | iframe   | getByTestId('lab-iframe')                            | lab-iframe           |
+| Frame heading      | Text     | (inside lab-iframe)                                  | frame-heading        |
+| Frame action btn   | Button   | (inside lab-iframe) getByRole('button', { name: 'Mark frame ready' }) | frame-action |
+| Frame status       | Text     | (inside lab-iframe)                                  | frame-status         |
+| Left iframe        | iframe   | getByTestId('frame-left')                            | frame-left           |
+| Right iframe       | iframe   | getByTestId('frame-right')                           | frame-right          |
+| Frame A heading    | Text     | (inside frame-right)                                 | frame-a-heading      |
+| Frame A button     | Button   | (inside frame-right) getByRole('button', { name: 'Ping A' }) | frame-a-btn   |
+| Frame A status     | Text     | (inside frame-right)                                 | frame-a-status       |
+| Nested parent      | iframe   | getByTestId('frame-nested-parent')                   | frame-nested-parent  |
+| Nested child       | iframe   | (inside nested parent) getByTestId('frame-nested-child') | frame-nested-child |
+| Nested child input | Textbox  | (inside nested child)                                | nested-child-input   |
+| Nested child btn   | Button   | (inside nested child) getByRole('button', { name: 'Save nested value' }) | nested-child-btn |
+| Nested child status| Text     | (inside nested child)                                | nested-child-status  |
+| Open helper tab    | Button   | getByRole('button', { name: 'Open helper tab' })     | open-window          |
+| Open second tab    | Button   | getByRole('button', { name: 'Open second tab' })     | open-second-window   |
+| Window note        | Text     | #windowNote                                          | window-note          |
+
+
+Helper tab page (window-helper.html — opens in new tab)
+-------------------------------------------------------
+| Control       | Type     | Locator hint                              | data-testid    |
+|---------------|----------|-------------------------------------------|----------------|
+| Helper title  | Heading  | getByRole('heading', { name: 'Lebyy Lab Helper' }) | helper-title |
+| Helper body   | Text     | getByTestId('helper-body')                | helper-body    |
+| Close button  | Button   | getByRole('button', { name: 'Close' })    | close-helper   |
+
+Helper tab title (document.title) : Lebyy Lab Helper
+Window note after open          : Helper tab opened. Assert title: Lebyy Lab Helper.
+
+
+Frame / window result messages
+------------------------------
+Single iframe status  : Frame action completed  (after Mark frame ready)
+Frame A status        : Frame A ready           (after Ping A)
+Nested child status   : Saved: <typed value>      (after Save nested value)
+
+
+Frames test data
+----------------
+Nested frame input value : regression-suite
+Helper page title        : Lebyy Lab Helper
+Helper body snippet      : This secondary tab is for multi-tab automation practice.
+
+
+Frame flows (3 E2E tests — iframe + nested + multi-tab)
+-------------------------------------------------------
+
+Test 4 — Single iframe button completes action  [IFRAME]
+--------------------------------------------------------
+test('Single iframe button completes action', async ({ page }) => {
+
+1. page.goto('https://lebyy.com/practice/frames.html')
+
+2. Use frameLocator on single iframe:
+   const frame = page.frameLocator('[data-testid="lab-iframe"]')
+
+3. Assert frame heading → "Inside the iframe"
+
+4. Assert frame status → "Waiting…"
+
+5. Click Mark frame ready (inside frame)
+
+6. Assert frame status → "Frame action completed"
+
+})
+
+
+Test 5 — Nested frame saves typed value  [NESTED IFRAME]
+--------------------------------------------------------
+test('Nested frame saves typed value', async ({ page }) => {
+
+1. page.goto('https://lebyy.com/practice/frames.html')
+
+2. Chain frameLocators for nested frames:
+   const nestedChild = page
+     .frameLocator('[data-testid="frame-nested-parent"]')
+     .frameLocator('[data-testid="frame-nested-child"]')
+
+3. Assert nested child heading → "Nested child frame"
+
+4. Fill nested child input → "regression-suite"
+
+5. Click Save nested value (inside nested child)
+
+6. Assert nested child status → contains "Saved: regression-suite"
+
+})
+
+
+Test 6 — Helper tab opens with correct title  [MULTI-TAB]
+---------------------------------------------------------
+test('Helper tab opens with correct title', async ({ page, context }) => {
+
+1. page.goto('https://lebyy.com/practice/frames.html')
+
+2. Start waiting for new page BEFORE click:
+   const pagePromise = context.waitForEvent('page')
+
+3. Click Open helper tab
+
+4. Resolve new page (helper tab)
+
+5. Wait for helper page to load
+
+6. Assert helper page title → "Lebyy Lab Helper"
+
+7. Assert helper title heading → "Lebyy Lab Helper"
+
+8. Assert helper body → contains "multi-tab automation practice"
+
+9. Assert parent window note → contains "Helper tab opened"
+
+10. Close helper tab
+
+})
+
+
+Frame locators to practice
+--------------------------
+- page.frameLocator('[data-testid="lab-iframe"]')
+- page.frameLocator('[data-testid="lab-iframe"]').getByTestId('frame-action').click()
+- page.frameLocator('[data-testid="frame-right"]').getByTestId('frame-a-btn').click()
+- page.frameLocator('[data-testid="frame-nested-parent"]').frameLocator('[data-testid="frame-nested-child"]')
+- page.frameLocator('...').getByTestId('nested-child-input').fill('regression-suite')
+- const helperPage = await context.waitForEvent('page')
+- await helperPage.waitForLoadState()
+- await expect(helperPage).toHaveTitle('Lebyy Lab Helper')
+- page.getByTestId('open-window').click()
+- page.getByTestId('window-note')

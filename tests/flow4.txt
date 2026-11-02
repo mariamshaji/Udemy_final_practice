@@ -1,0 +1,233 @@
+Flow 4 — Tables + Waits E2E (Lebyy Practice Lab)
+====================================================
+
+Covers Video 5 (Tables + Waits)
+
+Practice goal
+-------------
+Automate web table interactions — search, status filter, and column sort — plus
+dynamic waits for delayed content, loading spinner, and toast notifications using Playwright.
+
+Try these flows yourself before watching the video. In the video I will show the Cursor prompt,
+walk through the generated script, run it, and attach the final spec file.
+
+Style note
+----------
+- Separate test() block for each scenario
+- Each test starts with page.goto(...)
+- Use Playwright auto-waiting (expect(...).toBeVisible()) — avoid hard page.waitForTimeout()
+- Same simple style as other course specs
+
+
+URLs
+----
+Tables (catalog) : https://lebyy.com/practice/catalog.html
+Waits (sync)     : https://lebyy.com/practice/sync.html
+
+
+================================================================================
+VIDEO 5 — WEB TABLES (catalog.html)
+================================================================================
+
+All catalog / table controls
+----------------------------
+| Control        | Type            | Locator hint                                              | data-testid     |
+|----------------|-----------------|-----------------------------------------------------------|-----------------|
+| Page title     | Heading         | getByRole('heading', { name: 'Defect catalog' })          | catalog-title   |
+| Search box     | Search field    | getByPlaceholder('Search by id or title') / #searchBox    | catalog-search  |
+| Status filter  | Single dropdown | getByTestId('status-filter') / #statusFilter              | status-filter   |
+| Row count      | Text            | #rowCount                                                 | row-count       |
+| Catalog table  | Table           | getByTestId('catalog-table')                              | catalog-table   |
+| Table body     | tbody           | #catalogBody                                              | catalog-body    |
+| Table row      | Row             | getByTestId('catalog-row')                                | catalog-row     |
+| Sort ID        | Column header   | getByRole('columnheader', { name: 'ID' })                 | sort-id         |
+| Sort Title     | Column header   | getByRole('columnheader', { name: 'Title' })              | sort-title      |
+| Sort Severity  | Column header   | getByRole('columnheader', { name: 'Severity' })           | sort-severity   |
+| Sort Status    | Column header   | getByRole('columnheader', { name: 'Status' })             | sort-status     |
+
+
+Sample table data (8 defects on load)
+-------------------------------------
+| ID      | Title                                  | Severity | Status      |
+|---------|----------------------------------------|----------|-------------|
+| LAB-101 | Checkout total off by one              | High     | open        |
+| LAB-108 | Slow spinner never clears on Safari    | Medium   | in-progress |
+| LAB-112 | Upload rejects .CSV silently           | High     | open        |
+| LAB-119 | Table sort flips on second click       | Low      | closed      |
+| LAB-124 | Auth locked message missing i18n       | Medium   | open        |
+| LAB-130 | Frame button not reachable             | Blocker  | in-progress |
+| LAB-141 | Date picker ignores timezone           | Low      | closed      |
+| LAB-155 | Filter chip stays selected             | Medium   | open        |
+
+
+Tables test data
+----------------
+Initial row count   : 8 row(s)
+Search query        : checkout          (matches LAB-101 title)
+Status filter pick  : open              (4 matching rows)
+Sort column         : Title             (click header to sort A→Z; click again to reverse)
+
+
+Table flows (3 E2E tests)
+-------------------------
+
+Test 1 — Search filters defect catalog rows  [SEARCH]
+-------------------------------------------------------
+test('Search filters defect catalog rows', async ({ page }) => {
+
+1. page.goto('https://lebyy.com/practice/catalog.html')
+
+2. Assert row count → contains "8 row(s)"
+
+3. Assert catalog table has 8 rows (getByTestId('catalog-row'))
+
+4. Type in search box → "checkout"
+
+5. Assert row count → contains "1 row(s)"
+
+6. Assert visible row → contains "LAB-101" and "Checkout total off by one"
+
+})
+
+
+Test 2 — Status filter shows only open defects  [FILTER]
+---------------------------------------------------------
+test('Status filter shows only open defects', async ({ page }) => {
+
+1. page.goto('https://lebyy.com/practice/catalog.html')
+
+2. Select Status filter → "open"
+
+3. Assert row count → contains "4 row(s)"
+
+4. Assert all visible rows show status → "open"
+   (LAB-101, LAB-112, LAB-124, LAB-155)
+
+5. Assert a closed defect (e.g. "LAB-119") is not visible in the table
+
+})
+
+
+Test 3 — Sort by title column reorders rows  [SORT]
+---------------------------------------------------
+test('Sort by title column reorders rows', async ({ page }) => {
+
+1. page.goto('https://lebyy.com/practice/catalog.html')
+
+2. Click Title column header (getByTestId('sort-title'))
+
+3. Assert first row title cell → "Auth locked message missing i18n"
+   (alphabetical A→Z sort)
+
+4. Click Title column header again (reverse sort)
+
+5. Assert first row title cell → "Upload rejects .CSV silently"
+   (alphabetical Z→A sort)
+
+})
+
+
+Table locators to practice
+--------------------------
+- page.getByTestId('catalog-search').fill('checkout')
+- page.getByTestId('status-filter').selectOption('open')
+- page.getByTestId('row-count')
+- page.getByTestId('catalog-table')
+- page.getByTestId('catalog-row')
+- page.getByTestId('sort-title').click()
+- page.getByTestId('catalog-row').first().locator('td').nth(1)
+- page.getByRole('row', { name: /LAB-101/ })
+
+
+================================================================================
+VIDEO 5 — WAITS & LOADING (sync.html)
+================================================================================
+
+All sync / wait controls
+--------------------------
+| Control           | Type     | Locator hint                                        | data-testid      |
+|-------------------|----------|-----------------------------------------------------|------------------|
+| Page title        | Heading  | getByRole('heading', { name: 'Waits & loading' })   | sync-title       |
+| Load delayed msg  | Button   | getByRole('button', { name: 'Load delayed message' }) | load-delayed   |
+| Show toast        | Button   | getByRole('button', { name: 'Show toast' })         | show-toast       |
+| Loading row       | Div      | getByTestId('loading-row')                          | loading-row      |
+| Spinner           | Div      | #spinner                                            | spinner          |
+| Loading label     | Text     | #loadingLabel                                       | loading-label    |
+| Delayed result    | Div      | getByTestId('delayed-result')                       | delayed-result   |
+| Delayed message   | Alert    | #delayedBox                                         | delayed-message  |
+| Toast host        | Div      | #labToastHost                                       | toast-host       |
+| Toast item        | Div      | getByTestId('toast-item')                           | toast-item       |
+| Toast text        | Span     | getByTestId('toast')                                | toast            |
+
+
+Delayed content behavior
+------------------------
+Trigger           : Click "Load delayed message"
+Spinner duration  : ~2.5 seconds (button disabled while loading)
+Message text      : Data arrived after 2.5 seconds. Assert this text once visible.
+Toast text format : Toast fired at <time>  (auto-dismisses after ~3.2 seconds)
+
+
+Waits test data
+---------------
+Delayed message snippet : Data arrived after 2.5 seconds
+Toast text snippet      : Toast fired at
+
+
+Wait flows (2 E2E tests — delayed load + toast)
+-----------------------------------------------
+
+Test 4 — Delayed message appears after loading  [AJAX / EXPLICIT WAIT]
+----------------------------------------------------------------------
+test('Delayed message appears after loading', async ({ page }) => {
+
+1. page.goto('https://lebyy.com/practice/sync.html')
+
+2. Assert delayed message is not visible yet (or empty on first load)
+
+3. Click Load delayed message
+
+4. Optionally assert spinner → visible and loading label → contains "Working…"
+
+5. Wait for delayed message → visible (Playwright auto-wait)
+
+6. Assert delayed message → contains "Data arrived after 2.5 seconds"
+
+7. Assert spinner → hidden
+
+8. Assert Load delayed message button → enabled again
+
+})
+
+
+Test 5 — Toast notification appears and dismisses  [TOAST]
+------------------------------------------------------------
+test('Toast notification appears and dismisses', async ({ page }) => {
+
+1. page.goto('https://lebyy.com/practice/sync.html')
+
+2. Click Show toast
+
+3. Assert toast → visible
+
+4. Assert toast text → contains "Toast fired at"
+
+5. Assert toast host (getByTestId('toast-host')) → visible
+
+6. Wait for toast to auto-dismiss (~3.2s) → hidden
+
+})
+
+
+Wait locators to practice
+-------------------------
+- page.getByTestId('load-delayed').click()
+- page.getByTestId('spinner')
+- page.getByTestId('loading-label')
+- expect(page.getByTestId('delayed-message')).toBeVisible()
+- expect(page.getByTestId('delayed-message')).toContainText('Data arrived after 2.5 seconds')
+- expect(page.getByTestId('spinner')).toBeHidden()
+- page.getByTestId('show-toast').click()
+- page.getByTestId('toast')
+- expect(page.getByTestId('toast')).toBeVisible()
+- expect(page.getByTestId('toast')).toBeHidden()
